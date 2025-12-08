@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org">
+<head>
+    <div th:replace="~{head :: head}"></div>
+</head>
+<body>
+    <main role="main">
+        <body>
+
+        <div class="container center">
+            <div class="row">
+                <div class="col-sm">
+                </div>
+                <div class="col-sm">
+                    <div class="card">
+                        <div class="d-flex justify-content-end">
+                            <img  style="position: absolute" data-toggle="collapse" data-target="#collapseExample" aria-expanded="false" aria-controls="collapseExample" th:src="@{/images/settings.png}" width="50px" height="50px">
+                        </div>
+                        <div class="card-header text-center">
+                            <img src="./favicon.ico">
+                            <label>Supply Plan Calculator</label>
+                        </div>
+                        <div class="collapse" id="collapseExample">
+                            <div class="card card-body">
+                                <div id="first_upload_btn" onclick="firstCalculate = true; $('#file').click();" style="display: block; margin-bottom: 10px;" class="btn btn-primary file_upload">
+                                    <label>Проверить заполнение</label>
+                                </div>
+                                <div style="width: 350px" class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">Доп. Д/Ш/В</span>
+                                    </div>
+                                    <input id="dop_l" type="number" aria-label="Длинна" min="0" class="form-control">
+                                    <input id="dop_w" type="number" aria-label="Ширина" min="0" class="form-control">
+                                    <input id="dop_h" type="number" aria-label="Высота" min="0" class="form-control">
+                                </div>
+                            </div>
+                            <div class="input-group mb-3">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text" id="inputGroup-sizing-default">Предел высоты товара</span>
+                                </div>
+                                <input id="max_h" type="number" min="0" class="form-control" aria-label="Высота" aria-describedby="inputGroup-sizing-default">
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="upload_content" style="display: block">
+                                <h5 class="card-title">Please upload Excel document</h5>
+                                <p class="card-text">Calculation and distribution of pre-orders to containers.</p>
+                                <label id="original_name" style="visibility: hidden"></label>
+                                <div id="upload_btn" onclick="$('#file').click();" style="display: block" class="btn btn-primary file_upload">
+                                    <label id="upload_progress" >Upload file</label>
+                                </div>
+                            </div>
+                            <div style="display: none" id="calculate_content">
+                                <div id="progress_bars">
+                                </div>
+                                <div id="calculate_btn" class="btn btn-secondary" style="display: block">
+                                    <label id="calculate_lbl">Calculate Please Wait</label>
+                                </div>
+                            </div>
+                            <div style="display: none" id="download_content">
+                                <div id="download_btn" style="display: block" class="btn btn-secondary file_download">
+                                    <label id="download"><a id="download_link" href="#">Download result file</a></label>
+                                </div>
+                            </div>
+                            <div style="display: none" id="view3d_content">
+                                <form id="form_viewer" method="post" action="./viewer" target="_blank">
+                                    <input style="display: none" type="text" size="20" value="" name="visualResult_DTO">
+                                </form>
+                                <div id="view3d_btn" style="display: block" class="btn btn-dark">
+                                    View 3D Models Container
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+                <div class="col-sm">
+                </div>
+            </div>
+        </div>
+
+        <form id="file_form" method="POST" th:action="*{'/upload'}" enctype="multipart/form-data">
+            <input style="visibility: hidden" id="file" type="file" name="file"/>
+            <input style="visibility: hidden" type="submit" value="Submit" id="btnSubmit"/>
+        </form>
+        <style>
+            body {
+                background-color: azure;
+            }
+
+            .center {
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%,-50%);
+            }
+            .file_upload input[type=file] {
+                /* Делаем input побольше, чтобы он точно
+                   перекрыл контейнер. */
+                font-size: 200px;
+
+                /* Делаем input невидимым. По-другому нельзя,
+                   иначе браузер не будет на него реагировать. */
+                opacity: 0;
+                filter: alpha(opacity=0);
+
+                /*  Украшательства: */
+                cursor: pointer;
+            }
+        </style>
+        <script th:inline="javascript">
+            $("#btnSubmit").click(function (event) {
+                event.preventDefault();
+                var form = $('#file_form')[0];
+                var data = new FormData(form);
+                /*<![CDATA[*/
+                let context = /*[[${context}]]*/ +null;
+                /*]]>*/
+                $.ajax({
+                    type: "POST",
+                    enctype: 'multipart/form-data',
+                    url: context+"/rest/upload",
+                    data: data,
+                    processData: false,
+                    contentType: false,
+                    cache: false,
+                    timeout: 600000,
+                    xhr: function() {
+                        var xhr = $.ajaxSettings.xhr();
+                        xhr.upload.onprogress = function(e) {
+                            $("#upload_progress").text("Upload progress : " + Math.floor(e.loaded / e.total *100) + '%');
+                        };
+                        xhr.onprogress = function(e) {
+                            $("#upload_progress").text("Upload progress : " + Math.floor(e.loaded / e.total *100) + '%');
+                        };
+                        return xhr;
+                    },
+                    success: function (data) {
+                        if (!firstCalculate) toCalculate(data, context); else toFirstCalculate(data, context);
+                        $("#upload_progress").text("Upload File");
+                    },
+                    error: function (e) {
+                        console.log("ERROR : ", e);
+                        $("#upload_progress").text("Upload File");
+                    }
+                })
+            });
+
+            $("#file").change(function () {
+                var dop_l = $("#dop_l").val();
+                var dop_w = $("#dop_w").val();
+                var dop_h = $("#dop_h").val();
+                var max_h = $("#max_h").val();
+
+                setCookie('dop_l', dop_l, {secure: true, 'max-age': 36000});
+                setCookie('dop_w', dop_w, {secure: true, 'max-age': 36000});
+                setCookie('dop_h', dop_h, {secure: true, 'max-age': 36000});
+                setCookie('max_h', max_h, {secure: true, 'max-age': 36000});
+
+                $("#btnSubmit").click();
+            });
+
+
+        </script>
+        <script th:inline="javascript">
+            /*<![CDATA[*/
+            let context = /*[[${context}]]*/ +null;
+            /*]]>*/
+            $(function () {
+                connect(context);
+                // setInterval(() => connect(context), 5000)
+            });
+        </script>
+        <script th:inline="javascript">
+            var dop_l = getCookie("dop_l");
+            var dop_w = getCookie("dop_w");
+            var dop_h = getCookie("dop_h");
+            var max_h = getCookie("max_h");
+            if (max_h === 0) max_h = 9999;
+            $("#dop_l").val(dop_l);
+            $("#dop_w").val(dop_w);
+            $("#dop_h").val(dop_h);
+            $("#max_h").val(max_h);
+        </script>
+    </body>
+</main>
+
+<footer class="text-muted">
+    <div th:insert="~{footer :: footer}"></div>
+</footer>
+</body>
+</html>

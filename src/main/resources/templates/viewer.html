@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org">
+<head>
+    <div th:replace="~{head :: head}"></div>
+</head>
+<body>
+    <main role="main">
+        <body>
+        <div th:each="visual3d_dto, iter : ${visualResult_DTO.visual3DList}">
+            <div class="accordion" id="accordionExample">
+                <div class="card">
+                    <div class="card-header" id="headingThree">
+                        <h2 class="mb-0">
+                            <button th:text="${visual3d_dto.seller}" class="btn btn-link btn-block text-left collapsed" type="button" data-toggle="collapse"
+                                    th:data-target="${'#collapse'+ iter.index}" aria-expanded="false" th:aria-controls="${'collapse'+ iter.index}">
+                            </button>
+                        </h2>
+                    </div>
+                    <div th:id="${'collapse'+ iter.index}" class="collapse" aria-labelledby="headingThree" data-parent="#accordionExample">
+                        <div class="card-body">
+                            <div th:each="visual3DItem : ${visual3d_dto.visualMountInfoList}">
+                                <div class="card">
+                                    <a target="_blank" th:href="${'./index.html?fileName='  + visual3DItem.visual3DModelFileName}" th:text="${visual3DItem.visual3DModelFileName}" class="card-header"></a>
+                                    <div class="card-body">
+                                        <blockquote class="blockquote mb-0">
+                                            <p th:text="${'Количество контейнеров : '+visual3DItem.containersCount}"></p>
+                                        </blockquote>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </body>
+    </main>
+<footer class="text-muted">
+    <div th:insert="~{footer :: footer}"></div>
+</footer>
+</body>
+</html>

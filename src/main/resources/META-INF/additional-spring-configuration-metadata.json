@@ -1,0 +1,13 @@
+{
+  "properties": [
+    {
+      "name": "writeVisualisationToDisk",
+      "type": "java.lang.String",
+      "description": "Description for writeVisualisationToDisk."
+    },
+    {
+      "name": "recursive_pass",
+      "type": "java.lang.String",
+      "description": "Description for recursive_pass."
+    }
+  ] }
