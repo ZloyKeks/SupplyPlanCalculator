@@ -20,7 +20,8 @@ GIT_REPO="https://github.com/ZloyKeks/SupplyPlanCalculator.git"
 OLD_LIB_VERSION="1.2.17"
 APP_PORT="8081"
 LOG_DIR="/var/log/${APP_NAME}-old"
-BRANCH_OLD="main"  # Можно указать конкретную ветку или коммит
+BRANCH_OLD="${BRANCH_OLD:-main}"  # Можно указать через переменную окружения или параметр
+COMMIT_OLD="${COMMIT_OLD:-}"  # Можно указать конкретный коммит
 
 log_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -41,17 +42,26 @@ check_root() {
     fi
 }
 
-# Откат к старой версии библиотеки
+# Откат к старой версии библиотеки (опционально, если нужно изменить версию в старой ветке)
 revert_to_old_version() {
-    log_info "Откат к старой версии библиотеки ${OLD_LIB_VERSION}..."
+    log_info "Проверка версии библиотеки..."
     cd "$APP_DIR_OLD"
     
-    # Изменение версии в pom.xml
-    log_info "Обновление pom.xml..."
-    sed -i "s/<packing.version>.*<\/packing.version>/<packing.version>${OLD_LIB_VERSION}<\/packing.version>/" pom.xml
+    # Проверяем текущую версию в pom.xml
+    CURRENT_VERSION=$(grep -oP '<packing.version>\K[^<]+' pom.xml 2>/dev/null || echo "")
     
-    # Удаление зависимости api, если есть
-    sed -i '/<artifactId>api<\/artifactId>/,/<\/dependency>/d' pom.xml
+    if [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "$OLD_LIB_VERSION" ]; then
+        log_info "Изменение версии библиотеки с $CURRENT_VERSION на ${OLD_LIB_VERSION}..."
+        sed -i "s/<packing.version>.*<\/packing.version>/<packing.version>${OLD_LIB_VERSION}<\/packing.version>/" pom.xml
+        
+        # Удаление зависимости api, если есть
+        if grep -q '<artifactId>api</artifactId>' pom.xml; then
+            log_info "Удаление зависимости api..."
+            sed -i '/<artifactId>api<\/artifactId>/,/<\/dependency>/d' pom.xml
+        fi
+    else
+        log_info "Версия библиотеки уже соответствует или не найдена: $CURRENT_VERSION"
+    fi
     
     # Откат изменений в коде к старой версии API
     log_info "Откат изменений в коде..."
@@ -153,8 +163,19 @@ clone_or_update_repo() {
     if [ -d "$APP_DIR_OLD/.git" ]; then
         log_info "Обновление репозитория..."
         cd "$APP_DIR_OLD"
-        sudo -u "$APP_USER" git fetch origin
-        sudo -u "$APP_USER" git reset --hard origin/main
+        sudo -u "$APP_USER" git fetch origin --all --tags
+        
+        # Переключение на указанную ветку или коммит
+        if [ -n "$COMMIT_OLD" ]; then
+            log_info "Переключение на коммит: $COMMIT_OLD"
+            sudo -u "$APP_USER" git checkout "$COMMIT_OLD"
+        else
+            log_info "Переключение на ветку: $BRANCH_OLD"
+            sudo -u "$APP_USER" git checkout "$BRANCH_OLD" 2>/dev/null || \
+            sudo -u "$APP_USER" git checkout -b "$BRANCH_OLD" "origin/$BRANCH_OLD"
+            sudo -u "$APP_USER" git reset --hard "origin/$BRANCH_OLD"
+        fi
+        
         sudo -u "$APP_USER" git clean -fd
     else
         log_info "Клонирование репозитория..."
@@ -163,8 +184,24 @@ clone_or_update_repo() {
         fi
         git clone "$GIT_REPO" "$APP_DIR_OLD"
         chown -R "$APP_USER:$APP_USER" "$APP_DIR_OLD"
+        
+        cd "$APP_DIR_OLD"
+        
+        # Переключение на указанную ветку или коммит
+        if [ -n "$COMMIT_OLD" ]; then
+            log_info "Переключение на коммит: $COMMIT_OLD"
+            sudo -u "$APP_USER" git checkout "$COMMIT_OLD"
+        else
+            log_info "Переключение на ветку: $BRANCH_OLD"
+            sudo -u "$APP_USER" git checkout "$BRANCH_OLD" 2>/dev/null || \
+            sudo -u "$APP_USER" git checkout -b "$BRANCH_OLD" "origin/$BRANCH_OLD"
+        fi
     fi
     
+    # Показываем текущий коммит
+    CURRENT_COMMIT=$(cd "$APP_DIR_OLD" && sudo -u "$APP_USER" git rev-parse --short HEAD)
+    CURRENT_BRANCH=$(cd "$APP_DIR_OLD" && sudo -u "$APP_USER" git branch --show-current 2>/dev/null || echo "detached HEAD")
+    log_info "Текущий коммит: $CURRENT_COMMIT (ветка: $CURRENT_BRANCH)"
     log_info "Репозиторий готов"
 }
 
@@ -273,48 +310,118 @@ full_deploy() {
 }
 
 main() {
-    case "${1:-}" in
-        --revert)
+    ACTION=""
+    
+    # Парсинг параметров для ветки и коммита
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --branch)
+                BRANCH_OLD="$2"
+                shift 2
+                ;;
+            --commit)
+                COMMIT_OLD="$2"
+                shift 2
+                ;;
+            --revert)
+                ACTION="revert"
+                shift
+                ;;
+            --build)
+                ACTION="build"
+                shift
+                ;;
+            --setup)
+                ACTION="setup"
+                shift
+                ;;
+            --deploy)
+                ACTION="deploy"
+                shift
+                ;;
+            --status)
+                ACTION="status"
+                shift
+                ;;
+            --full)
+                ACTION="full"
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                log_error "Неизвестный параметр: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Выполнение действия
+    case "$ACTION" in
+        revert)
             check_root
             clone_or_update_repo
             revert_to_old_version
             ;;
-        --build)
+        build)
             check_root
             build_app
             ;;
-        --setup)
+        setup)
             check_root
             setup_service
             ;;
-        --deploy)
+        deploy)
             check_root
             deploy_app
             ;;
-        --status)
+        status)
             show_status
             ;;
-        --full)
+        full)
             full_deploy
             ;;
         *)
-            echo "Использование: $0 [опция]"
-            echo ""
-            echo "Опции:"
-            echo "  --revert    Откатить код к старой версии библиотеки"
-            echo "  --build     Собрать приложение"
-            echo "  --setup     Настроить systemd service"
-            echo "  --deploy    Развернуть приложение"
-            echo "  --status    Показать статус"
-            echo "  --full      Полное развертывание (все вышеперечисленное)"
-            echo ""
-            echo "Примеры:"
-            echo "  sudo $0 --full      # Полное развертывание"
-            echo "  sudo $0 --revert    # Только откат кода"
-            echo "  $0 --status         # Статус (без root)"
+            show_help
             exit 1
             ;;
     esac
+}
+
+show_help() {
+    echo "Использование: $0 [опция] [--branch ВЕТКА] [--commit КОММИТ]"
+    echo ""
+    echo "Опции:"
+    echo "  --full           Полное развертывание (клонирование, сборка, запуск)"
+    echo "  --revert         Откатить код к старой версии библиотеки"
+    echo "  --build          Собрать приложение"
+    echo "  --setup          Настроить systemd service"
+    echo "  --deploy         Развернуть приложение"
+    echo "  --status         Показать статус"
+    echo "  --help, -h       Показать эту справку"
+    echo ""
+    echo "Параметры ветки/коммита:"
+    echo "  --branch ВЕТКА   Указать ветку для развертывания (по умолчанию: main)"
+    echo "  --commit КОММИТ  Указать коммит для развертывания (приоритет над --branch)"
+    echo ""
+    echo "Примеры:"
+    echo "  # Развернуть ветку old-version"
+    echo "  sudo $0 --full --branch old-version"
+    echo ""
+    echo "  # Развернуть конкретный коммит"
+    echo "  sudo $0 --full --commit fb2bf0b"
+    echo ""
+    echo "  # Развернуть ветку через переменную окружения"
+    echo "  BRANCH_OLD=old-version sudo $0 --full"
+    echo ""
+    echo "  # Только клонирование и переключение на ветку"
+    echo "  sudo $0 --revert --branch old-version"
+    echo ""
+    echo "  # Проверка статуса"
+    echo "  $0 --status"
 }
 
 main "$@"
