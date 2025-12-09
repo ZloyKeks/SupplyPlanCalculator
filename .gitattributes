@@ -1,8 +1,10 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-# Bash scripts should always use LF
-*.sh text eol=lf
+# Bash scripts should always use LF and be treated as text
+*.sh text eol=lf -diff
+deploy.sh text eol=lf -diff
+deploy_old_version.sh text eol=lf -diff
 
 # Java files
 *.java text eol=lf
