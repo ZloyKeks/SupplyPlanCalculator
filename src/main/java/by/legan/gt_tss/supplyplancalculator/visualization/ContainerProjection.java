@@ -1,9 +1,11 @@
 package by.legan.gt_tss.supplyplancalculator.visualization;
 
-import com.github.skjolber.packing.Box;
-import com.github.skjolber.packing.Container;
-import com.github.skjolber.packing.Level;
-import com.github.skjolber.packing.Placement;
+import com.github.skjolber.packing.api.Box;
+import com.github.skjolber.packing.api.BoxItem;
+import com.github.skjolber.packing.api.BoxStackValue;
+import com.github.skjolber.packing.api.Container;
+import com.github.skjolber.packing.api.Placement;
+import com.github.skjolber.packing.api.Stack;
 
 import java.util.List;
 
@@ -27,33 +29,42 @@ public class ContainerProjection extends AbstractProjection<Container> {
 			ContainerVisualization containerVisualization = new ContainerVisualization();
 			containerVisualization.setStep(step++);
 			
-			containerVisualization.setDx(inputContainer.getWidth());
-			containerVisualization.setDy(inputContainer.getDepth());
-			containerVisualization.setDz(inputContainer.getHeight());
+			// В версии 4.x Container использует getDx(), getDy(), getDz() вместо getWidth(), getDepth(), getHeight()
+			containerVisualization.setDx(inputContainer.getDx());
+			containerVisualization.setDy(inputContainer.getDy());
+			containerVisualization.setDz(inputContainer.getDz());
 
-			containerVisualization.setLoadDx(inputContainer.getWidth());
-			containerVisualization.setLoadDy(inputContainer.getDepth());
-			containerVisualization.setLoadDz(inputContainer.getHeight());
+			containerVisualization.setLoadDx(inputContainer.getDx());
+			containerVisualization.setLoadDy(inputContainer.getDy());
+			containerVisualization.setLoadDz(inputContainer.getDz());
 
-			containerVisualization.setId(inputContainer.getName());
-			containerVisualization.setName(inputContainer.getName());
+			// В версии 4.x Container использует getDescription() вместо getName()
+			String containerName = inputContainer.getDescription();
+			containerVisualization.setId(containerName);
+			containerVisualization.setName(containerName);
 
 			StackVisualization stackVisualization = new StackVisualization();
 			stackVisualization.setStep(step++);
 			containerVisualization.setStack(stackVisualization);
 			
-			for(Level level : inputContainer.getLevels()) {
-				for (Placement placement : level.iterable()) {
-					
-					Box box = placement.getBox();
+			// В версии 4.x Container использует getStack() вместо getLevels()
+			Stack stack = inputContainer.getStack();
+			for (Placement placement : stack) {
+					// В версии 4.x Placement использует getBoxItem() вместо getBox()
+					BoxItem boxItem = placement.getBoxItem();
+					Box box = boxItem.getBox();
 					BoxVisualization boxVisualization = new BoxVisualization();
-					boxVisualization.setId(box.getName());
-					boxVisualization.setName(box.getName());
+					// В версии 4.x Box использует getId() и getDescription()
+					String boxName = box.getId() != null ? box.getId() : box.getDescription();
+					boxVisualization.setId(boxName);
+					boxVisualization.setName(boxName);
 					boxVisualization.setStep(step);
 
-					boxVisualization.setDx(box.getWidth());
-					boxVisualization.setDy(box.getDepth());
-					boxVisualization.setDz(box.getHeight());
+					// В версии 4.x размеры Box хранятся в BoxStackValue
+					BoxStackValue stackValue = box.getStackValue(0);
+					boxVisualization.setDx(stackValue.getDx());
+					boxVisualization.setDy(stackValue.getDy());
+					boxVisualization.setDz(stackValue.getDz());
 					
 					StackPlacementVisualization stackPlacement = new StackPlacementVisualization();
 
@@ -72,7 +83,6 @@ public class ContainerProjection extends AbstractProjection<Container> {
 					stackVisualization.add(stackPlacement);
 					
 					step++;
-				}
 			}
 			
 			visualization.add(containerVisualization);

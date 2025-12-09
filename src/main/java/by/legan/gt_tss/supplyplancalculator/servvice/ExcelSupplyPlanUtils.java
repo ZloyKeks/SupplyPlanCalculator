@@ -4,10 +4,11 @@ import by.legan.gt_tss.supplyplancalculator.Data.*;
 import by.legan.gt_tss.supplyplancalculator.configuration.MainConfig;
 import by.legan.gt_tss.supplyplancalculator.webSocket.StatusProcessMessageDTO;
 import by.legan.gt_tss.supplyplancalculator.webSocket.WebSocketEndPointsEnum;
-import com.github.skjolber.packing.Container;
-import com.github.skjolber.packing.Dimension;
-import com.github.skjolber.packing.Level;
-import com.github.skjolber.packing.Placement;
+import com.github.skjolber.packing.api.Box;
+import com.github.skjolber.packing.api.BoxItem;
+import com.github.skjolber.packing.api.Container;
+import com.github.skjolber.packing.api.Placement;
+import com.github.skjolber.packing.api.Stack;
 import com.google.gson.Gson;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -215,7 +216,7 @@ public class ExcelSupplyPlanUtils {
         private String name; // Название продукта
         private String seller; // Имя продавцы
         private Double Delivery_time; // Срок поставки в днях
-        private com.github.skjolber.packing.Dimension dimension;
+        private Dimension dimension;
 
     }
 
@@ -262,7 +263,8 @@ public class ExcelSupplyPlanUtils {
                         MountPlan plan_request = plan.getItem().getMountPlans().get(plan.getMount() - 1);
                         double mount_request = Math.floor((plan.getMount() - 1) - (Math.floor(plan_request.getItem().getDelivery_time() / 30)));
                         String mount_request_name = plan.getItem().getMountPlans().get((int) mount_request).getName();
-                        double percent = ((double) container.getUsedSpace().getVolume() / (double) container.getVolume()) * 100;
+                        // В версии 4.x используем getStack().getVolume() вместо getUsedSpace().getVolume()
+                        double percent = ((double) container.getStack().getVolume() / (double) container.getVolume()) * 100;
                         order.mount_request = mount_request_name;
                         order.mount_exist = plan_request.getName();
                         order.percent = percent;
@@ -345,7 +347,9 @@ public class ExcelSupplyPlanUtils {
                 if (order.getItemInfoOrders().size() > 0) {
                     createRow(sheet, rowNumber[0]++, "Заказ № " + request++ + " | Дата заказа : " + order.mount_request + "| Дата поступления : " + order.mount_exist);
                     DecimalFormat f = new DecimalFormat("##.00");
-                    createRow(sheet, rowNumber[0]++,"Загрузка контейнера : " + f.format(order.percent) + "%" + " Масса товара : " + (order.container.getWeight() - order.container.getFreeWeight()) + "кг");
+                    // В версии 4.x используем getStack().getWeight() для веса груза
+                    int cargoWeight = order.container.getStack().getWeight();
+                    createRow(sheet, rowNumber[0]++,"Загрузка контейнера : " + f.format(order.percent) + "%" + " Масса товара : " + cargoWeight + "кг");
                     createRow(sheet, rowNumber[0]++, "Артикул","Номенклатура","Количество","FOB", "Масса", "Размер", "Срок поставки");
                     createRow(sheet, rowNumber[0]++, "1.1","1. Product","","Purchase price", "weight");
                     order.itemInfoOrders.stream().forEach(itemInfoOrder -> {
@@ -405,19 +409,23 @@ public class ExcelSupplyPlanUtils {
      */
     private Map<String, ItemsFullInfoCount> getCountItemsFromContainer(Container container, List<Item> items){
         Map<String, ItemsFullInfoCount> mapItemsCount = new HashMap<>();
-        for (Level level : container.getLevels()){
-            for (Placement placement : level.iterable()) {
-                String boxName = placement.getBox().getName();
+        // В версии 4.x Container использует getStack() вместо getLevels()
+        Stack stack = container.getStack();
+        for (Placement placement : stack) {
+                // В версии 4.x Placement использует getBoxItem() вместо getBox()
+                BoxItem boxItem = placement.getBoxItem();
+                Box box = boxItem.getBox();
+                // В версии 4.x Box использует getId() и getDescription()
+                String boxName = box.getId() != null ? box.getId() : box.getDescription();
                 if (mapItemsCount.containsKey(boxName)) {
                     ItemsFullInfoCount itemsFullInfoCount = mapItemsCount.get(boxName);
                     itemsFullInfoCount.count++;
                     mapItemsCount.put(boxName, itemsFullInfoCount);
                 } else {
                     ItemsFullInfoCount itemsFullInfoCount = new ItemsFullInfoCount(boxName, 1, getItemFromName(items,boxName));
-                    mapItemsCount.put(placement.getBox().getName(), itemsFullInfoCount);
+                    mapItemsCount.put(boxName, itemsFullInfoCount);
                 }
             }
-        }
         return mapItemsCount;
     }
 

@@ -1,6 +1,5 @@
 package by.legan.gt_tss.supplyplancalculator.Data;
 
-import com.github.skjolber.packing.Dimension;
 import lombok.Data;
 
 import java.util.List;
@@ -11,9 +10,9 @@ public class Item {
     private String name; // Название продукта
     private String seller; // Имя продавцы
     private Double Delivery_time; // Срок поставки в днях
-    private com.github.skjolber.packing.Dimension dimensions_container = new Dimension(); // Размеры контейнера в котором они будут грузится
+    private Dimension dimensions_container = new Dimension(); // Размеры контейнера в котором они будут грузится
     private Double container_lifting; // Грузоподъемность контейнера, кг.
-    private com.github.skjolber.packing.Dimension dimensions_item = new Dimension(); // Размеры груза, mm
+    private Dimension dimensions_item = new Dimension(); // Размеры груза, mm
 
     private String type;
 

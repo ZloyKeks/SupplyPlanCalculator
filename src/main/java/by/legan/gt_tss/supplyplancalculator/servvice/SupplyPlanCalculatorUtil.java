@@ -5,7 +5,10 @@ import by.legan.gt_tss.supplyplancalculator.configuration.MainConfig;
 import by.legan.gt_tss.supplyplancalculator.webSocket.StatusProcessMessageDTO;
 import by.legan.gt_tss.supplyplancalculator.webSocket.WebSocketEndPointsEnum;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.github.skjolber.packing.*;
+import com.github.skjolber.packing.api.*;
+import com.github.skjolber.packing.api.ContainerItem;
+import com.github.skjolber.packing.api.PackagerResult;
+import com.github.skjolber.packing.packer.laff.LargestAreaFitFirstPackager;
 import com.google.gson.Gson;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -156,7 +159,7 @@ public class SupplyPlanCalculatorUtil {
             List<Item> items = getItemFromSeller(document,seller); // Получаем все товары поставщика
             List<Item> deficitOfMount = searchDeficitOfMountAnd(items, mount_start); // Получаем товары с дефицитом за указанный месяц
             List<Item> itemRequestAccept = deficitOfMount.stream().filter(item -> checkRequestAccept(item,mount_start)).collect(Collectors.toList()); // Получаем только те н которые можно подать заявку
-            com.github.skjolber.packing.Dimension dimensions = items.get(0).getDimensions_container();
+            Dimension dimensions = items.get(0).getDimensions_container();
             int maxWeight = (int) Math.round(items.get(0).getContainer_lifting());
             resultCalculate = packToContainer(itemRequestAccept, mount_start, getBoxItem(itemRequestAccept, mount_start),dimensions, maxWeight, 0, -1);
             if (resultCalculate == null) return null;
@@ -220,7 +223,7 @@ public class SupplyPlanCalculatorUtil {
      */
     private List<Item> dopCalculateToMount(String user_key, ResultCalculate resultCalculate, int mount_start,int mount_end, List<Item> items){
         log.info("Доукомплектование, до " + items.get(0).getMountPlans().get(mount_end).getName());
-        com.github.skjolber.packing.Dimension dimensions = items.get(0).getDimensions_container();
+        Dimension dimensions = items.get(0).getDimensions_container();
         int maxWeight = (int) Math.round(items.get(0).getContainer_lifting());
         List<Item> deficitOfMount = searchDeficitOfMountAnd(items, mount_end); // Получаем товары с дефицитом за указанный месяц
         List<Item> itemRequestAccept = new ArrayList<>(deficitOfMount.stream().filter(item -> checkRequestAccept(item, mount_start)).collect(Collectors.toList()));
@@ -258,7 +261,8 @@ public class SupplyPlanCalculatorUtil {
                 if (dop_result != null) {
 /*                        System.out.println("------------000000---------");
                     for (Container container : finish_dop_result.getPack()) {
-                        double dop_percent = ((double) container.getUsedSpace().getVolume() / (double) container.getVolume()) * 100;
+                        // В версии 4.x используем getStack().getVolume() вместо getUsedSpace().getVolume()
+                        double dop_percent = ((double) container.getStack().getVolume() / (double) container.getVolume()) * 100;
                         System.out.println("Percent load" + dop_percent);
                     }
                     System.out.println("--------------000000-------");*/
@@ -317,7 +321,7 @@ public class SupplyPlanCalculatorUtil {
      * @param set_count - значение New-Supply_Plan которое задать, -1 для задания посчитанного значения
      * @return Списки заполненных контейнеров, товаров, и ModificationPlan
      */
-    public ResultCalculate packToContainer(List<Item> itemRequestAccept, int mount, List<BoxItem> boxList, com.github.skjolber.packing.Dimension dimensions, int maxWeight, int maxContainers, int set_count){
+    public ResultCalculate packToContainer(List<Item> itemRequestAccept, int mount, List<BoxItem> boxList, Dimension dimensions, int maxWeight, int maxContainers, int set_count){
         List<Container> pack = packToManyContainers("Container : " + mount, dimensions, maxWeight, boxList, maxContainers);
         ResultCalculate resultCalculate = new ResultCalculate();
         if (pack == null) return null;
@@ -605,13 +609,37 @@ public class SupplyPlanCalculatorUtil {
      * @param products список элементов коробок для упаковки
      * @return упакованный контейнер, или null если упаковка не удалась
      */
-    private Container packToOneContainer(String containerName, com.github.skjolber.packing.Dimension dimensions_container, int maxWeight , List<BoxItem> products) {
-        List<Container> containers = new ArrayList<>();
+    private Container packToOneContainer(String containerName, Dimension dimensions_container, int maxWeight , List<BoxItem> products) {
         //TODO Максимальную массу и размеры нужно брать из UI
-        Container container = new Container(containerName, dimensions_container.getWidth(), dimensions_container.getDepth(), dimensions_container.getHeight(), maxWeight);
-        containers.add(container); // Можно паковать сразу в кучу контейнеров, но нам это не подходит т.к. нужно учитывать кучу параметров
-        LargestAreaFitFirstPackager packager = new LargestAreaFitFirstPackager(containers, false, true, true, 1);
-        return packager.pack(products, Long.MAX_VALUE);
+        Container container = Container.newBuilder()
+                .withDescription(containerName)
+                .withSize(dimensions_container.getWidth(), 
+                         dimensions_container.getDepth(), 
+                         dimensions_container.getHeight())
+                .withEmptyWeight(1)
+                .withMaxLoadWeight(maxWeight)
+                .build();
+        
+        List<ContainerItem> containerItems = ContainerItem
+                .newListBuilder()
+                .withContainer(container)
+                .build();
+        
+        LargestAreaFitFirstPackager packager = LargestAreaFitFirstPackager
+                .newBuilder()
+                .build();
+        
+        PackagerResult result = packager
+                .newResultBuilder()
+                .withContainerItems(containerItems)
+                .withBoxItems(products)
+                .build();
+        
+        if (!result.isSuccess()) {
+            return null;
+        }
+        
+        return result.get(0);
     }
 
     /**
@@ -624,19 +652,44 @@ public class SupplyPlanCalculatorUtil {
      * @param maxContainers максимальное количество контейнеров для использования (0 означает неограниченно, по умолчанию 100)
      * @return список упакованных контейнеров
      */
-    private List<Container> packToManyContainers(String prefix, com.github.skjolber.packing.Dimension dimensions_container, int maxWeight, List<BoxItem> products, int maxContainers){
+    private List<Container> packToManyContainers(String prefix, Dimension dimensions_container, int maxWeight, List<BoxItem> products, int maxContainers){
         //TODO Это нужно вынести в настройки
         if (maxContainers == 0) maxContainers = 100;
-        List<Container> containers = new ArrayList<>(maxContainers);
+        
+        ContainerItem.Builder containerItemsBuilder = ContainerItem.newListBuilder();
         for (int i = 0; i < maxContainers; i++)
         {
-            Container container = new Container(dimensions_container, maxWeight);
-            containers.add(container);
+            Container container = Container.newBuilder()
+                    .withDescription(prefix + " " + i)
+                    .withSize(dimensions_container.getWidth(), 
+                             dimensions_container.getDepth(), 
+                             dimensions_container.getHeight())
+                    .withEmptyWeight(1)
+                    .withMaxLoadWeight(maxWeight)
+                    .build();
+            containerItemsBuilder.withContainer(container);
         }
-//        Packager packager = LargestAreaFitFirstPackager.newBuilder().withContainers(containers).withRotate2D().build();
-//        Packager packager = ParallelBruteForcePackager.newBuilder().withContainers(containers).withRotate2D().build();
-        LargestAreaFitFirstPackager packager = new LargestAreaFitFirstPackager(containers, false, true, true, 0);
-        return packager.packList(products, maxContainers, Long.MAX_VALUE);
+        List<ContainerItem> containerItems = containerItemsBuilder.build();
+        
+        LargestAreaFitFirstPackager packager = LargestAreaFitFirstPackager
+                .newBuilder()
+                .build();
+        
+        PackagerResult result = packager
+                .newResultBuilder()
+                .withContainerItems(containerItems)
+                .withBoxItems(products)
+                .build();
+        
+        if (!result.isSuccess()) {
+            return new ArrayList<>();
+        }
+        
+        List<Container> packedContainers = new ArrayList<>();
+        for (int i = 0; i < result.size(); i++) {
+            packedContainers.add(result.get(i));
+        }
+        return packedContainers;
     }
 
     /**
@@ -666,9 +719,21 @@ public class SupplyPlanCalculatorUtil {
         for (Item item : items) {
             int count = (int) Math.round(item.getMountPlans().get(number_mount).getPlanned_balance());
             if (count < 0) count = count * -1;
-            List<BoxItem> result = createBoxItemAndItem(item,count).stream().map(FullBoxItem::getBoxItem).collect(Collectors.toList());
-            boxes.addAll(result);
-            all_count = all_count + result.size();
+            if (count > 0) {
+                // В версии 4.x BoxItem представляет группу одинаковых коробок
+                // Создаем один BoxItem с количеством count
+                Box box = Box.newBuilder()
+                        .withId(item.getName())
+                        .withSize(item.getDimensions_item().getWidth(), 
+                                 item.getDimensions_item().getDepth(), 
+                                 item.getDimensions_item().getHeight())
+                        .withWeight((int) Math.round(item.getWeight()))
+                        .withRotate3D()
+                        .build();
+                BoxItem boxItem = new BoxItem(box, count);
+                boxes.add(boxItem);
+                all_count = all_count + count;
+            }
         }
         return boxes;
     }
@@ -682,14 +747,21 @@ public class SupplyPlanCalculatorUtil {
      */
     private List<FullBoxItem> createBoxItemAndItem(Item item, int count){
         List<FullBoxItem> result = new ArrayList<>();
+        Box box = Box.newBuilder()
+                .withId(item.getName())
+                .withSize(item.getDimensions_item().getWidth(), 
+                         item.getDimensions_item().getDepth(), 
+                         item.getDimensions_item().getHeight())
+                .withWeight((int) Math.round(item.getWeight()))
+                .withRotate3D()
+                .build();
+        // В версии 4.x BoxItem представляет группу одинаковых коробок
+        // Создаем один BoxItem с количеством count для использования в упаковке
+        // Но для совместимости со старым кодом создаем отдельные FullBoxItem
+        BoxItem boxItem = new BoxItem(box, count);
         for (int i = 0; i < count; i++) {
             FullBoxItem boxItemAndItem = new FullBoxItem();
-            boxItemAndItem.setBoxItem(new BoxItem(new Box(
-                    item.getName(),
-                    item.getDimensions_item().getWidth(),
-                    item.getDimensions_item().getDepth(),
-                    item.getDimensions_item().getHeight(),
-                    (int) Math.round(item.getWeight()))));
+            boxItemAndItem.setBoxItem(boxItem);
             boxItemAndItem.setItem(item);
             result.add(boxItemAndItem);
         }
@@ -728,9 +800,12 @@ public class SupplyPlanCalculatorUtil {
             log.info("ModificationPlan Count : " + resultCalculate.getModificationPlan().size());
             log.info("Containers count : " + resultCalculate.getContainersCount());
             resultCalculate.getPack().stream().forEach(container -> {
-                double percent = ((double) container.getUsedSpace().getVolume() / (double) container.getVolume()) * 100;
+                // В версии 4.x используем getStack().getVolume() вместо getUsedSpace().getVolume()
+                double percent = ((double) container.getStack().getVolume() / (double) container.getVolume()) * 100;
                 DecimalFormat f = new DecimalFormat("##.00");
-                log.info("Container load : " + f.format(percent) + "%" + " Загрузка контейнера : " + (container.getWeight() - container.getFreeWeight()) + "кг");
+                // В версии 4.x используем getStack().getWeight() для веса груза
+                int cargoWeight = container.getStack().getWeight();
+                log.info("Container load : " + f.format(percent) + "%" + " Загрузка контейнера : " + cargoWeight + "кг");
             });
         }
     }

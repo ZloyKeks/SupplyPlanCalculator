@@ -17,6 +17,7 @@
             <node.version>v18.20.0</node.version>
             <npm.version>10.8.2</npm.version>
             <log4j2.version>2.24.3</log4j2.version>
+            <packing.version>4.0.5</packing.version>
     </properties>
     <groupId>by.legan.gt_tss</groupId>
     <artifactId>SupplyPlanCalculator</artifactId>
@@ -24,6 +25,8 @@
     <name>SupplyPlanCalculator</name>
     <description>SupplyPlanCalculator</description>
     <packaging>jar</packaging>
+
+    <!-- Using Maven Central only -->
     <dependencies>
         <dependency>
             <groupId>commons-io</groupId>
@@ -82,8 +85,13 @@
         </dependency>
         <dependency>
             <groupId>com.github.skjolber.3d-bin-container-packing</groupId>
+            <artifactId>api</artifactId>
+            <version>${packing.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.skjolber.3d-bin-container-packing</groupId>
             <artifactId>core</artifactId>
-            <version>4.0.0</version>
+            <version>${packing.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>

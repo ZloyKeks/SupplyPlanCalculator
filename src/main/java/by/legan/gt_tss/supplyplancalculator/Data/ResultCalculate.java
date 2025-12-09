@@ -1,7 +1,7 @@
 package by.legan.gt_tss.supplyplancalculator.Data;
 
-import com.github.skjolber.packing.BoxItem;
-import com.github.skjolber.packing.Container;
+import com.github.skjolber.packing.api.BoxItem;
+import com.github.skjolber.packing.api.Container;
 import com.google.gson.annotations.Expose;
 import lombok.Data;
 

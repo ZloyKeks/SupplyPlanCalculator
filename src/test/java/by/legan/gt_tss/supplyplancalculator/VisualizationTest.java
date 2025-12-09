@@ -1,43 +1,61 @@
 package by.legan.gt_tss.supplyplancalculator;
 
-import com.github.skjolber.packing.Box;
-import com.github.skjolber.packing.BoxItem;
-import com.github.skjolber.packing.Container;
-import com.github.skjolber.packing.LargestAreaFitFirstPackager;
+import com.github.skjolber.packing.api.Box;
+import com.github.skjolber.packing.api.BoxItem;
+import com.github.skjolber.packing.api.Container;
+import com.github.skjolber.packing.api.ContainerItem;
+import com.github.skjolber.packing.api.PackagerResult;
+import com.github.skjolber.packing.packer.laff.LargestAreaFitFirstPackager;
 import by.legan.gt_tss.supplyplancalculator.visualization.ContainerProjection;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 
 public class VisualizationTest {
 
 //	@Test
 	public void testPackager() throws Exception {
 		
-		// issue 159
-		List<Container> containers = new ArrayList<>();
-		Container container = new Container("X", 100, 100, 100, 21000);
-		containers.add(container);
-
+		// issue 159 - API 4.0.0 uses builders
+		Container container = Container.newBuilder()
+				.withDescription("X")
+				.withSize(100, 100, 100)
+				.withEmptyWeight(1)
+				.withMaxLoadWeight(21000)
+				.build();
+		
+		List<ContainerItem> containerItems = ContainerItem
+				.newListBuilder()
+				.withContainer(container)
+				.build();
 
 		List<BoxItem> products = new ArrayList<>();
 		for (int i=0; i<500; i++){
-			Random random = new Random();
-			products.add(new BoxItem(new Box(""+i, 20, 35, 20, 10)));
-			products.add(new BoxItem(new Box(""+i, 10, 10, 10, 10)));
-			products.add(new BoxItem(new Box("m"+i, 5, 5, 15, 10)));
+			products.add(new BoxItem(Box.newBuilder().withId(""+i).withSize(20, 35, 20).withWeight(10).withRotate3D().build(), 1));
+			products.add(new BoxItem(Box.newBuilder().withId(""+i).withSize(10, 10, 10).withWeight(10).withRotate3D().build(), 1));
+			products.add(new BoxItem(Box.newBuilder().withId("m"+i).withSize(5, 5, 15).withWeight(10).withRotate3D().build(), 1));
 		}
 
-//		Packager packager = LargestAreaFitFirstPackager.newBuilder().withContainers(containers).withRotate2D().build();
-		LargestAreaFitFirstPackager packager = new LargestAreaFitFirstPackager(containers, true, true, true, 1);
-		Container pack = packager.pack(products, Long.MAX_VALUE);
+		LargestAreaFitFirstPackager packager = LargestAreaFitFirstPackager
+				.newBuilder()
+				.build();
+		
+		PackagerResult result = packager
+				.newResultBuilder()
+				.withContainerItems(containerItems)
+				.withBoxItems(products)
+				.build();
+		
+		if (!result.isSuccess()) {
+			throw new RuntimeException("Packaging failed");
+		}
+		
+		Container pack = result.get(0);
 		
 		ContainerProjection projection = new ContainerProjection();
-		List<Container> containerList = Arrays.asList(pack);
-//		List<Container> containerList = packager.packList(products,10, Long.MAX_VALUE);
+		List<Container> containerList = new ArrayList<>();
+		containerList.add(pack);
 
 		System.out.println(containerList);
 		
