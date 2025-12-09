@@ -406,7 +406,7 @@ public class ExcelSupplyPlanUtils {
     private Map<String, ItemsFullInfoCount> getCountItemsFromContainer(Container container, List<Item> items){
         Map<String, ItemsFullInfoCount> mapItemsCount = new HashMap<>();
         for (Level level : container.getLevels()){
-            for (Placement placement : level.subList(0,level.size())) {
+            for (Placement placement : level.iterable()) {
                 String boxName = placement.getBox().getName();
                 if (mapItemsCount.containsKey(boxName)) {
                     ItemsFullInfoCount itemsFullInfoCount = mapItemsCount.get(boxName);

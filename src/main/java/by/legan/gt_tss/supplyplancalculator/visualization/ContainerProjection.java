@@ -43,7 +43,7 @@ public class ContainerProjection extends AbstractProjection<Container> {
 			containerVisualization.setStack(stackVisualization);
 			
 			for(Level level : inputContainer.getLevels()) {
-				for (Placement placement : level) {
+				for (Placement placement : level.iterable()) {
 					
 					Box box = placement.getBox();
 					BoxVisualization boxVisualization = new BoxVisualization();
