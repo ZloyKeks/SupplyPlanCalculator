@@ -417,12 +417,15 @@ public class ExcelSupplyPlanUtils {
                 Box box = boxItem.getBox();
                 // В версии 4.x Box использует getId() и getDescription()
                 String boxName = box.getId() != null ? box.getId() : box.getDescription();
+                // В версии 4.x BoxItem может содержать несколько коробок (getCount())
+                // В старой версии каждая коробка была отдельным Placement
+                int count = boxItem.getCount();
                 if (mapItemsCount.containsKey(boxName)) {
                     ItemsFullInfoCount itemsFullInfoCount = mapItemsCount.get(boxName);
-                    itemsFullInfoCount.count++;
+                    itemsFullInfoCount.count += count;  // Добавляем количество коробок, а не 1
                     mapItemsCount.put(boxName, itemsFullInfoCount);
                 } else {
-                    ItemsFullInfoCount itemsFullInfoCount = new ItemsFullInfoCount(boxName, 1, getItemFromName(items,boxName));
+                    ItemsFullInfoCount itemsFullInfoCount = new ItemsFullInfoCount(boxName, count, getItemFromName(items,boxName));
                     mapItemsCount.put(boxName, itemsFullInfoCount);
                 }
             }
