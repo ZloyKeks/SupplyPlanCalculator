@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.WorkbookUtil;
 import org.apache.poi.xssf.usermodel.*;
+import org.apache.poi.xssf.usermodel.DefaultIndexedColorMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
@@ -486,7 +487,7 @@ public class ExcelSupplyPlanUtils {
                     Color COLOR_light_gray  = new Color(255, 255, 9);
                     XSSFCellStyle style = book.createCellStyle();
                     style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-                    style.setFillForegroundColor(new XSSFColor(COLOR_light_gray));
+                    style.setFillForegroundColor(new XSSFColor(COLOR_light_gray, new DefaultIndexedColorMap()));
 
                     style.setBorderTop(BorderStyle.THIN);
                     style.setBorderRight(BorderStyle.THIN         );
@@ -549,7 +550,7 @@ public class ExcelSupplyPlanUtils {
      * @return значение ячейки как строка
      */
     private String getCellValue(XSSFCell cell) {
-        if (cell.getCellTypeEnum() == CellType.FORMULA) return "" + cell.getNumericCellValue();
+        if (cell.getCellType() == CellType.FORMULA) return "" + cell.getNumericCellValue();
         return cell.toString();
     }
 
