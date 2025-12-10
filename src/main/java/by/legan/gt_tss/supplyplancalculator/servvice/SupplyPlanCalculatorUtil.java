@@ -252,8 +252,16 @@ public class SupplyPlanCalculatorUtil {
                 int dop_pack_size = 1; //Math.round(fullBoxNextMount.size()/50);
 //                    if (dop_pack_size <=0) dop_pack_size = 1;
                 List<FullBoxItem> dop_fullBox = givePackBox(fullBoxNextMount, dop_pack_size);
-                List<BoxItem> dod_box = dop_fullBox.stream().map(FullBoxItem::getBoxItem).collect(Collectors.toList());
-                List<BoxItem> temp_boxItem = new ArrayList<>(boxItems);
+                // Создаем новые BoxItem для новых коробок (не переиспользуем объекты)
+                List<BoxItem> dod_box = new ArrayList<>();
+                for (FullBoxItem fullBoxItem : dop_fullBox) {
+                    BoxItem original = fullBoxItem.getBoxItem();
+                    // Создаем новый BoxItem с тем же Box и количеством
+                    BoxItem newBoxItem = new BoxItem(original.getBox(), original.getCount());
+                    dod_box.add(newBoxItem);
+                }
+                // Создаем глубокую копию существующих boxItems и добавляем новые
+                List<BoxItem> temp_boxItem = createDeepCopyBoxItemList(boxItems);
                 temp_boxItem.addAll(dod_box);
                 List<Item> addItems = dop_fullBox.stream().map(FullBoxItem::getItem).collect(Collectors.toList());
 
@@ -267,11 +275,15 @@ public class SupplyPlanCalculatorUtil {
                     }
                     System.out.println("--------------000000-------");*/
                     setValueFinishResult(finish_dop_result, dop_result, true);
-                    boxItems = temp_boxItem;
+                    // Обновляем boxItems из temp_boxItem (который был передан в packToContainer)
+                    // Создаем копию, чтобы избежать проблем в следующей итерации
+                    boxItems = createDeepCopyBoxItemList(temp_boxItem);
                     removeFirsPack(fullBoxNextMount, dop_pack_size);
                 } else {
                     //TODO Не понятно почему но затирается значение finish_dop_result, приходится пересчитывать с предыдущим значением боксов
-                    dop_result = packToContainer(addItems, mount_start, boxItems, dimensions, maxWeight, resultCalculate.getContainersCount(), 1);
+                    // Создаем глубокую копию boxItems перед повторным вызовом
+                    List<BoxItem> boxItemsCopy = createDeepCopyBoxItemList(boxItems);
+                    dop_result = packToContainer(addItems, mount_start, boxItemsCopy, dimensions, maxWeight, resultCalculate.getContainersCount(), 1);
                     if (dop_result != null) setValueFinishResult(finish_dop_result, dop_result, false);
                     if (dop_fullBox.size() > 0) {
                         log.info("COUNT " + fullBoxNextMount.size() + " | REMOVE ALL :" + dop_fullBox.get(0).getItem().getName());
@@ -322,11 +334,15 @@ public class SupplyPlanCalculatorUtil {
      * @return Списки заполненных контейнеров, товаров, и ModificationPlan
      */
     public ResultCalculate packToContainer(List<Item> itemRequestAccept, int mount, List<BoxItem> boxList, Dimension dimensions, int maxWeight, int maxContainers, int set_count){
-        List<Container> pack = packToManyContainers("Container : " + mount, dimensions, maxWeight, boxList, maxContainers);
+        // Создаем копию boxList, так как packToManyContainers создаст свою копию, но мы хотим сохранить оригинальный список
+        // в resultCalculate (или можно сохранить копию, если библиотека модифицировала список)
+        List<BoxItem> boxListCopy = createDeepCopyBoxItemList(boxList);
+        List<Container> pack = packToManyContainers("Container : " + mount, dimensions, maxWeight, boxListCopy, maxContainers);
         ResultCalculate resultCalculate = new ResultCalculate();
         if (pack == null) return null;
         resultCalculate.setContainersCount(pack.size());
         resultCalculate.setPack(pack);
+        // Сохраняем оригинальный список (не модифицированный библиотекой)
         resultCalculate.setBoxItems(boxList);
         for (Item item : itemRequestAccept){
             MountPlan plan = item.getMountPlans().get(mount);
@@ -347,7 +363,7 @@ public class SupplyPlanCalculatorUtil {
      */
     public void writeVisualisationToDisk(List<ResultCalculate> resultOfMounts, String seller) {
         resultOfMounts.stream().forEach(resultCalculate -> {
-            if (resultCalculate != null && resultCalculate.getModificationPlan() != null) {
+            if (resultCalculate != null && resultCalculate.getModificationPlan() != null && !resultCalculate.getModificationPlan().isEmpty()) {
                 printContainerLoad(resultCalculate);
                 try {
                     String json = packagingVisualization(resultCalculate.getPack());
@@ -611,6 +627,10 @@ public class SupplyPlanCalculatorUtil {
      */
     private Container packToOneContainer(String containerName, Dimension dimensions_container, int maxWeight , List<BoxItem> products) {
         //TODO Максимальную массу и размеры нужно брать из UI
+        // В версии 4.x библиотека модифицирует список BoxItem во время упаковки (уменьшает количество через decrement())
+        // Создаем глубокую копию списка для безопасности
+        List<BoxItem> productsCopy = createDeepCopyBoxItemList(products);
+        
         Container container = Container.newBuilder()
                 .withDescription(containerName)
                 .withSize(dimensions_container.getWidth(), 
@@ -636,7 +656,7 @@ public class SupplyPlanCalculatorUtil {
         PackagerResult result = packager
                 .newResultBuilder()
                 .withContainerItems(containerItems)
-                .withBoxItems(products)
+                .withBoxItems(productsCopy)
                 .build();
         
         if (!result.isSuccess()) {
@@ -648,6 +668,10 @@ public class SupplyPlanCalculatorUtil {
 
     /**
      * Упаковывает товары в несколько контейнеров используя алгоритм Largest Area Fit First.
+     * 
+     * ВАЖНО: В версии 4.x библиотека имеет баг с упаковкой в несколько контейнеров одновременно -
+     * она модифицирует внутреннюю структуру BoxItemSource, что приводит к IndexOutOfBoundsException.
+     * Поэтому мы используем packToOneContainer для каждого контейнера отдельно, отслеживая сколько коробок осталось.
      *
      * @param prefix префикс для имен контейнеров
      * @param dimensions_container размеры контейнеров
@@ -660,42 +684,74 @@ public class SupplyPlanCalculatorUtil {
         //TODO Это нужно вынести в настройки
         if (maxContainers == 0) maxContainers = 100;
         
-        ContainerItem.Builder containerItemsBuilder = ContainerItem.newListBuilder();
-        for (int i = 0; i < maxContainers; i++)
-        {
-            Container container = Container.newBuilder()
-                    .withDescription(prefix + " " + i)
-                    .withSize(dimensions_container.getWidth(), 
-                             dimensions_container.getDepth(), 
-                             dimensions_container.getHeight())
-                    .withEmptyWeight(1)
-                    .withMaxLoadWeight(maxWeight)
-                    .build();
-            containerItemsBuilder.withContainer(container);
-        }
-        List<ContainerItem> containerItems = containerItemsBuilder.build();
-        
-        // В старой версии использовались параметры: (containers, false, true, true, 0)
-        // В версии 4.x поворот настраивается на уровне Box (уже настроено через withRotate3D() при создании Box)
-        // Упаковщик использует настройки поворота из Box
-        LargestAreaFitFirstPackager packager = LargestAreaFitFirstPackager
-                .newBuilder()
-                .build();
-        
-        PackagerResult result = packager
-                .newResultBuilder()
-                .withContainerItems(containerItems)
-                .withBoxItems(products)
-                .build();
-        
-        if (!result.isSuccess()) {
-            return new ArrayList<>();
-        }
-        
         List<Container> packedContainers = new ArrayList<>();
-        for (int i = 0; i < result.size(); i++) {
-            packedContainers.add(result.get(i));
+        
+        // Отслеживаем, сколько коробок каждого типа осталось для упаковки
+        // Используем Map для объединения BoxItem с одинаковым ID
+        Map<String, BoxItem> productMap = new HashMap<>();
+        Map<String, Integer> remainingCounts = new HashMap<>();
+        for (BoxItem product : products) {
+            String boxId = product.getBox().getId();
+            if (boxId == null) {
+                boxId = product.getBox().getDescription();
+            }
+            // Объединяем BoxItem с одинаковым ID
+            if (productMap.containsKey(boxId)) {
+                // Если уже есть BoxItem с таким ID, суммируем количество
+                int existingCount = remainingCounts.get(boxId);
+                remainingCounts.put(boxId, existingCount + product.getCount());
+            } else {
+                productMap.put(boxId, product);
+                remainingCounts.put(boxId, product.getCount());
+            }
         }
+        
+        // Упаковываем в один контейнер за раз, используя packToOneContainer
+        for (int containerIndex = 0; containerIndex < maxContainers; containerIndex++) {
+            // Создаем список BoxItem с оставшимися коробками
+            // Важно: создаем только один BoxItem для каждого уникального Box
+            List<BoxItem> productsCopy = new ArrayList<>();
+            for (Map.Entry<String, BoxItem> entry : productMap.entrySet()) {
+                String boxId = entry.getKey();
+                BoxItem original = entry.getValue();
+                int remainingCount = remainingCounts.getOrDefault(boxId, 0);
+                if (remainingCount > 0) {
+                    // Создаем новый BoxItem с оставшимся количеством
+                    BoxItem copy = new BoxItem(original.getBox(), remainingCount);
+                    productsCopy.add(copy);
+                }
+            }
+            
+            // Если не осталось коробок для упаковки, прекращаем
+            if (productsCopy.isEmpty()) {
+                break;
+            }
+            
+            // Упаковываем в один контейнер используя существующий метод
+            Container packedContainer = packToOneContainer(prefix + " " + containerIndex, dimensions_container, maxWeight, productsCopy);
+            
+            if (packedContainer == null) {
+                // Если не удалось упаковать, прекращаем
+                break;
+            }
+            
+            packedContainers.add(packedContainer);
+            
+            // Обновляем количество оставшихся коробок на основе упакованного контейнера
+            if (packedContainer.getStack() != null) {
+                // Stack является итерируемым и содержит Placement объекты
+                for (Placement placement : packedContainer.getStack()) {
+                    BoxItem boxItem = placement.getBoxItem();
+                    String boxId = boxItem.getBox().getId();
+                    if (boxId == null) {
+                        boxId = boxItem.getBox().getDescription();
+                    }
+                    int currentRemaining = remainingCounts.getOrDefault(boxId, 0);
+                    remainingCounts.put(boxId, Math.max(0, currentRemaining - 1));
+                }
+            }
+        }
+        
         return packedContainers;
     }
 
@@ -710,6 +766,24 @@ public class SupplyPlanCalculatorUtil {
         ContainerProjection projection = new ContainerProjection();
         PackagingVisualization visualization = projection.project(containerList);
         return visualization.toJson();
+    }
+
+    /**
+     * Создает глубокую копию списка BoxItem для безопасного использования с библиотекой упаковки.
+     * Библиотека 3d-bin-container-packing 4.x модифицирует объекты BoxItem во время упаковки,
+     * поэтому необходимо создавать копии перед каждым вызовом упаковщика.
+     *
+     * @param original список оригинальных BoxItem
+     * @return новый список с копиями BoxItem
+     */
+    private List<BoxItem> createDeepCopyBoxItemList(List<BoxItem> original) {
+        List<BoxItem> copy = new ArrayList<>();
+        for (BoxItem originalItem : original) {
+            // Создаем новый BoxItem с тем же Box и количеством
+            BoxItem copyItem = new BoxItem(originalItem.getBox(), originalItem.getCount());
+            copy.add(copyItem);
+        }
+        return copy;
     }
 
     /**
@@ -801,19 +875,23 @@ public class SupplyPlanCalculatorUtil {
      * @param resultCalculate результат расчета содержащий информацию о контейнерах
      */
     private void printContainerLoad(ResultCalculate resultCalculate){
-        if (resultCalculate != null && resultCalculate.getModificationPlan() != null) {
+        if (resultCalculate != null && resultCalculate.getModificationPlan() != null && !resultCalculate.getModificationPlan().isEmpty()) {
             log.info("Месяц №" + resultCalculate.getModificationPlan().get(0).getMount());
-            log.info("Product Pack " + resultCalculate.getBoxItems().size());
+            log.info("Product Pack " + (resultCalculate.getBoxItems() != null ? resultCalculate.getBoxItems().size() : 0));
             log.info("ModificationPlan Count : " + resultCalculate.getModificationPlan().size());
             log.info("Containers count : " + resultCalculate.getContainersCount());
-            resultCalculate.getPack().stream().forEach(container -> {
-                // В версии 4.x используем getStack().getVolume() вместо getUsedSpace().getVolume()
-                double percent = ((double) container.getStack().getVolume() / (double) container.getVolume()) * 100;
-                DecimalFormat f = new DecimalFormat("##.00");
-                // В версии 4.x используем getStack().getWeight() для веса груза
-                int cargoWeight = container.getStack().getWeight();
-                log.info("Container load : " + f.format(percent) + "%" + " Загрузка контейнера : " + cargoWeight + "кг");
-            });
+            if (resultCalculate.getPack() != null && !resultCalculate.getPack().isEmpty()) {
+                resultCalculate.getPack().stream().forEach(container -> {
+                    if (container != null && container.getStack() != null) {
+                        // В версии 4.x используем getStack().getVolume() вместо getUsedSpace().getVolume()
+                        double percent = ((double) container.getStack().getVolume() / (double) container.getVolume()) * 100;
+                        DecimalFormat f = new DecimalFormat("##.00");
+                        // В версии 4.x используем getStack().getWeight() для веса груза
+                        int cargoWeight = container.getStack().getWeight();
+                        log.info("Container load : " + f.format(percent) + "%" + " Загрузка контейнера : " + cargoWeight + "кг");
+                    }
+                });
+            }
         }
     }
 

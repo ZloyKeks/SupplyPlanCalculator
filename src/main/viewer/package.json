@@ -15,8 +15,7 @@
     "react-scripts": "5.0.1",
     "simplex-noise": "2.4.0",
     "stats-js": "1.0.1",
-    "three": "^0.129.0",
-    "three-orbitcontrols": "2.110.2"
+    "three": "^0.129.0"
   },
   "devDependencies": {
     "typescript": "4.3.2",

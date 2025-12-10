@@ -1,0 +1,72 @@
+═══════════════════════════════════════════════════════════════
+  БЫСТРАЯ НАСТРОЙКА КОДИРОВКИ POWERSHELL
+═══════════════════════════════════════════════════════════════
+
+Если получаете ошибку "выполнение сценариев отключено",
+используйте один из способов ниже:
+
+═══════════════════════════════════════════════════════════════
+СПОСОБ 1: Запуск с обходом политики (РЕКОМЕНДУЕТСЯ)
+═══════════════════════════════════════════════════════════════
+
+Скопируйте и выполните в PowerShell:
+
+powershell -ExecutionPolicy Bypass -File .\setup-powershell-encoding.ps1
+
+═══════════════════════════════════════════════════════════════
+СПОСОБ 2: Временно изменить политику выполнения
+═══════════════════════════════════════════════════════════════
+
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\setup-powershell-encoding.ps1
+
+═══════════════════════════════════════════════════════════════
+СПОСОБ 3: Разблокировать файл
+═══════════════════════════════════════════════════════════════
+
+Unblock-File -Path .\setup-powershell-encoding.ps1
+.\setup-powershell-encoding.ps1
+
+═══════════════════════════════════════════════════════════════
+СПОСОБ 4: Выполнить команды напрямую (без скрипта)
+═══════════════════════════════════════════════════════════════
+
+Скопируйте и вставьте в PowerShell:
+
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+$PSDefaultParameterValues['*:Encoding'] = 'utf8'
+chcp 65001
+
+# Для постоянной настройки (создание профиля):
+$profilePath = $PROFILE.CurrentUserAllHosts
+$profileDir = Split-Path -Path $profilePath -Parent
+if (-not (Test-Path $profileDir)) {
+    New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+}
+$profileContent = @"
+# Настройка кодировки UTF-8 для PowerShell
+`$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+`$PSDefaultParameterValues['*:Encoding'] = 'utf8'
+chcp 65001 | Out-Null
+"@
+if (-not (Test-Path $profilePath) -or (Get-Content $profilePath -Raw) -notlike "*OutputEncoding*") {
+    Add-Content -Path $profilePath -Value "`n$profileContent"
+    Write-Host "Профиль создан/обновлен: $profilePath" -ForegroundColor Green
+}
+
+═══════════════════════════════════════════════════════════════
+ПРОВЕРКА
+═══════════════════════════════════════════════════════════════
+
+После настройки проверьте:
+
+Write-Host "Привет, мир! Тест кириллицы: АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
+
+Если текст отображается корректно - настройка выполнена успешно!
+
+═══════════════════════════════════════════════════════════════
+
