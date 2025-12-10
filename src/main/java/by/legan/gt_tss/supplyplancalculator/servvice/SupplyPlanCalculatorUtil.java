@@ -627,11 +627,10 @@ public class SupplyPlanCalculatorUtil {
         
         // В старой версии использовались параметры: (containers, false, true, true, 1)
         // false = rotate2D, true = rotate3D, true = ? , 1 = threads
-        // В новой версии нужно настроить builder аналогично
+        // В версии 4.x поворот настраивается на уровне Box (уже настроено через withRotate3D() при создании Box)
+        // Упаковщик использует настройки поворота из Box
         LargestAreaFitFirstPackager packager = LargestAreaFitFirstPackager
                 .newBuilder()
-                .withRotate3D()  // rotate3D = true (второй параметр true)
-                // rotate2D = false (первый параметр false) - по умолчанию
                 .build();
         
         PackagerResult result = packager
@@ -677,11 +676,10 @@ public class SupplyPlanCalculatorUtil {
         List<ContainerItem> containerItems = containerItemsBuilder.build();
         
         // В старой версии использовались параметры: (containers, false, true, true, 0)
-        // false = rotate2D, true = rotate3D, true = ? , 0 = threads
+        // В версии 4.x поворот настраивается на уровне Box (уже настроено через withRotate3D() при создании Box)
+        // Упаковщик использует настройки поворота из Box
         LargestAreaFitFirstPackager packager = LargestAreaFitFirstPackager
                 .newBuilder()
-                .withRotate3D()  // rotate3D = true
-                // rotate2D = false (по умолчанию)
                 .build();
         
         PackagerResult result = packager

@@ -131,9 +131,23 @@ public class MainRestController {
             File file = new File(tmpdir+"/"+name);
             IOUtils.copy(new FileInputStream(file), outputStream);
         };
+        
+        // Используем RFC 5987 encoding для имени файла с кириллицей
+        String encodedFilename = java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        String contentDisposition = String.format("attachment; filename*=UTF-8''%s", encodedFilename);
+        
+        // Определяем Content-Type в зависимости от расширения файла
+        MediaType contentType = MediaType.APPLICATION_OCTET_STREAM;
+        if (name.endsWith(".json")) {
+            contentType = MediaType.APPLICATION_JSON;
+        } else if (name.endsWith(".xlsx")) {
+            contentType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename="+name)
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                .contentType(contentType)
                 .body(streamingResponseBody);
     }
 
