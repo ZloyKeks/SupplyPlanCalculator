@@ -3,7 +3,7 @@ package by.legan.gt_tss.supplyplancalculator.controllers;
 
 import by.legan.gt_tss.supplyplancalculator.Data.Result;
 import by.legan.gt_tss.supplyplancalculator.Data.VisualResult_DTO;
-import by.legan.gt_tss.supplyplancalculator.servvice.CalculatorService;
+import by.legan.gt_tss.supplyplancalculator.service.CalculatorService;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.apache.commons.io.FilenameUtils;
@@ -18,6 +18,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.*;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -131,8 +133,11 @@ public class MainRestController {
             File file = new File(tmpdir+"/"+name);
             IOUtils.copy(new FileInputStream(file), outputStream);
         };
+        String encodedFilename = URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20");
+        // Используем только filename* для поддержки UTF-8, чтобы избежать проблем с кириллицей в Tomcat
+        String contentDisposition = String.format("attachment; filename*=UTF-8''%s", encodedFilename);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename="+name)
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(streamingResponseBody);
     }

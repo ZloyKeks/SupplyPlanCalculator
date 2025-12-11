@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import * as THREE from "three";
-import OrbitControls from "three-orbitcontrols";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { Stats } from "stats-js";
 import { Color, Font } from "three";
 

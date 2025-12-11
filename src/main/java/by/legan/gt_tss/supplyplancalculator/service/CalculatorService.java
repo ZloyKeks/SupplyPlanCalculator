@@ -1,4 +1,4 @@
-package by.legan.gt_tss.supplyplancalculator.servvice;
+package by.legan.gt_tss.supplyplancalculator.service;
 
 import by.legan.gt_tss.supplyplancalculator.Data.Result;
 import by.legan.gt_tss.supplyplancalculator.Data.VisualResult_DTO;

@@ -193,7 +193,7 @@
                         <goals>
                             <goal>npm</goal>
                         </goals>
-                        <phase>generate-sources</phase>
+                        <phase>prepare-package</phase>
                         <configuration>
                             <arguments>run build</arguments>
                         </configuration>
