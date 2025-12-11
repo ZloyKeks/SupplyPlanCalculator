@@ -8,7 +8,6 @@ import { MemoryColorScheme, RandomColorScheme, StackPlacement, Box, Container, S
 import { http } from "./utils";
 
 import randomColor from "randomcolor";
-import { thisExpression } from "@babel/types";
 
 var CONTAINERS = "./assets/containers.json";
 
@@ -274,7 +273,7 @@ class ThreeScene extends Component {
   onDocumentMouseMove = event => {
     event.preventDefault();
 
-    if (event && typeof event !== undefined) {
+    if (event && typeof event !== 'undefined') {
       pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
       pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
     }

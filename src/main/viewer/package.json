@@ -6,21 +6,21 @@
   "main": "src/index.js",
   "homepage": "./",
   "dependencies": {
-    "@types/randomcolor": "^0.5.5",
-    "@types/three": "^0.129.1",
-    "dat.gui": "0.7.7",
+    "@types/randomcolor": "^0.5.9",
+    "@types/three": "^0.181.0",
+    "dat.gui": "0.7.9",
     "randomcolor": "^0.6.2",
-    "react": "17.0.2",
-    "react-dom": "17.0.2",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
     "react-scripts": "5.0.1",
-    "simplex-noise": "2.4.0",
+    "simplex-noise": "4.0.3",
     "stats-js": "1.0.1",
-    "three": "^0.129.0"
+    "three": "^0.181.2"
   },
   "devDependencies": {
-    "typescript": "4.3.2",
-    "@babel/core": "^7.16.0",
-    "rimraf": "^5.0.5"
+    "typescript": "4.9.5",
+    "@babel/core": "^7.28.5",
+    "rimraf": "^6.1.2"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -33,5 +33,9 @@
     "not dead",
     "not ie <= 11",
     "not op_mini all"
-  ]
+  ],
+  "overrides": {
+    "react": "19.2.1",
+    "react-dom": "19.2.1"
+  }
 }
