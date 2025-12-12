@@ -20,7 +20,7 @@ public class SupplyPlanCalculatorApplication extends SpringBootServletInitialize
      */
     @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
-        return application.sources(SupplyPlanCalculatorApplication .class);
+        return application.sources(SupplyPlanCalculatorApplication.class);
     }
 
     /**
@@ -29,7 +29,7 @@ public class SupplyPlanCalculatorApplication extends SpringBootServletInitialize
      * @param args аргументы командной строки
      */
     public static void main(String[] args) {
-        SpringApplication.run(SupplyPlanCalculatorApplication .class, args);
+        SpringApplication.run(SupplyPlanCalculatorApplication.class, args);
     }
 
 }

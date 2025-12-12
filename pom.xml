@@ -5,11 +5,11 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.8</version>
+        <version>4.0.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
             <frontend.plugin.version>1.15.4</frontend.plugin.version>
@@ -17,6 +17,8 @@
             <node.version>v22.21.1</node.version>
             <npm.version>11.6.4</npm.version>
             <log4j2.version>2.25.2</log4j2.version>
+            <maven.compiler.proc>full</maven.compiler.proc>
+            <maven.compiler.release>25</maven.compiler.release>
     </properties>
     <groupId>by.legan.gt_tss</groupId>
     <artifactId>SupplyPlanCalculator</artifactId>
@@ -33,7 +35,7 @@
         <dependency>
             <groupId>jakarta.el</groupId>
             <artifactId>jakarta.el-api</artifactId>
-            <version>5.0.1</version>
+            <version>6.0.1</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -205,8 +207,16 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.1</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <release>25</release>
+                    <fork>true</fork>
+                    <executable>${env.JAVA_HOME}/bin/javac</executable>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.42</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
@@ -220,6 +230,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <mainClass>by.legan.gt_tss.supplyplancalculator.SupplyPlanCalculatorApplication</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
