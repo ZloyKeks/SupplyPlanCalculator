@@ -37,7 +37,11 @@ var minStepNumber = 0;
 
 function extractGet(name) {
   var result = window.location.search.match(new RegExp(name + '=([^&=]+)'));
-  return result ? result[1] : false;
+  if (result) {
+    // Декодируем URL-encoded параметр
+    return decodeURIComponent(result[1]);
+  }
+  return false;
 }
 
 /**

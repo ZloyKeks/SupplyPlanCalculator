@@ -5,12 +5,19 @@ import by.legan.gt_tss.supplyplancalculator.Data.*;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
 import jakarta.servlet.ServletContext;
+import java.io.IOException;
+import java.io.InputStream;
+import org.springframework.util.StreamUtils;
 
 /**
  * MVC контроллер для обработки запросов веб-страниц.
@@ -24,6 +31,7 @@ public class MVCMainController {
 
     /**
      * Возвращает главную индексную страницу.
+     * Исключает /index.html, который обслуживается как статический ресурс.
      *
      * @return ModelAndView для главной страницы
      */
@@ -58,4 +66,35 @@ public class MVCMainController {
         modelAndView.setViewName("viewer");
         return modelAndView;
     }
+
+    /**
+     * Обрабатывает запросы к /index.html для отображения 3D просмотрщика.
+     * Возвращает статический HTML файл из viewer/build.
+     * Параметр fileName будет доступен в React приложении через window.location.search.
+     *
+     * @return ResponseEntity с содержимым статического index.html
+     */
+    @GetMapping("/index.html")
+    public ResponseEntity<byte[]> indexHtml() {
+        try {
+            // Загружаем статический ресурс из classpath
+            ClassPathResource resource = new ClassPathResource("static/index.html");
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Читаем содержимое файла
+            InputStream inputStream = resource.getInputStream();
+            byte[] bytes = StreamUtils.copyToByteArray(inputStream);
+            inputStream.close();
+            
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .body(bytes);
+        } catch (IOException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
 }

@@ -137,6 +137,10 @@
             <resource>
                 <targetPath>static</targetPath>
                 <directory>src/main/viewer/build</directory>
+                <filtering>false</filtering>
+                <includes>
+                    <include>**/*</include>
+                </includes>
             </resource>
             <resource>
                 <filtering>true</filtering>

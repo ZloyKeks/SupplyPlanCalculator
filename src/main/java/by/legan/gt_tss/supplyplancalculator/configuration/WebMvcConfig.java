@@ -1,6 +1,7 @@
 package by.legan.gt_tss.supplyplancalculator.configuration;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import jakarta.servlet.Filter;
@@ -18,6 +19,19 @@ import java.io.IOException;
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
+
+    /**
+     * Настраивает обработку статических ресурсов.
+     * Убеждается, что статические ресурсы обрабатываются раньше контроллеров.
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Явно регистрируем статические ресурсы из classpath:/static/
+        // Это гарантирует, что /index.html будет обслуживаться как статический ресурс
+        registry.addResourceHandler("/**")
+                .addResourceLocations("classpath:/static/")
+                .setCachePeriod(0); // Отключаем кеширование для разработки
+    }
 
     /**
      * Регистрирует фильтр для добавления HTTP-заголовка Permissions-Policy.
